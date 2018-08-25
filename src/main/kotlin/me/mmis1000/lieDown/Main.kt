@@ -108,8 +108,6 @@ class Main {
 
 
     fun handleSet(human: Human, isLying: Boolean) {
-        logger.info("setting $human")
-
         val id = (human as Entity).entityId
 
         if (humanToEntityId[human] != null) {
