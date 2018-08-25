@@ -27,8 +27,6 @@ class DataLieDown(bool: Boolean = false, var human: Human? = null) : AbstractBoo
     }
 
     init {
-        main.logger.info("data created, $bool")
-
         registerFieldSetter(key) {
             this@DataLieDown.value = it
 

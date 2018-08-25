@@ -61,7 +61,7 @@ compileTestKotlin {
 }
 
 minecraft {
-    version = "1.12.2-14.23.4.2705"
+    version = "1.12.2-14.23.4.2736"
     mappings = "snapshot_20180813"
     makeObfSourceJar = false
 }
@@ -89,7 +89,7 @@ signing {
 
 jar {
     manifest.attributes(
-        "FMLAT": "packetgate_at.cfg"
+        "FMLAT": "liedown_at.cfg"
     )
 }
 

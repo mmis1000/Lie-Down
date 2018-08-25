@@ -3,13 +3,13 @@ package me.mmis1000.lieDown
 import com.google.inject.Inject
 import eu.crushedpixel.sponge.packetgate.api.listener.PacketListener.ListenerPriority
 import eu.crushedpixel.sponge.packetgate.api.registry.PacketGate
+import me.mmis1000.lieDown.command.LieDownCommand
 import me.mmis1000.lieDown.data.DataLieDown
 import me.mmis1000.lieDown.network.Helper.Companion.sendLieDownToPlayer
 import me.mmis1000.lieDown.network.Helper.Companion.sendWakeUpToPlayer
 import me.mmis1000.lieDown.network.PlayerSpawnPacketListener
 import net.minecraft.entity.Entity
-import net.minecraft.network.play.client.CPacketChatMessage
-import net.minecraft.network.play.server.SPacketChat
+import net.minecraft.network.play.server.SPacketSpawnPlayer
 import org.slf4j.Logger
 import org.spongepowered.api.Sponge
 import org.spongepowered.api.data.DataRegistration
@@ -20,7 +20,9 @@ import org.spongepowered.api.event.entity.DestructEntityEvent
 import org.spongepowered.api.event.entity.SpawnEntityEvent
 import org.spongepowered.api.event.game.GameRegistryEvent
 import org.spongepowered.api.event.game.state.GameConstructionEvent
+import org.spongepowered.api.event.game.state.GamePostInitializationEvent
 import org.spongepowered.api.event.game.state.GamePreInitializationEvent
+import org.spongepowered.api.event.network.ClientConnectionEvent
 import org.spongepowered.api.event.world.chunk.UnloadChunkEvent
 import org.spongepowered.api.plugin.Plugin
 import org.spongepowered.api.plugin.PluginContainer
@@ -57,14 +59,20 @@ class Main {
         return entityIdToHuman[id]
     }
 
-    @SuppressWarnings("unused")
+    @Suppress("UNUSED_PARAMETER")
     @Listener
     fun construct(event: GameConstructionEvent) {
         logger.info("plugin loaded")
         main = this
     }
 
-    @SuppressWarnings("unused")
+    @Suppress("UNUSED_PARAMETER")
+    @Listener
+    fun preIInit(event: GamePreInitializationEvent) {
+        Sponge.getCommandManager().register(plugin, LieDownCommand.spec, "liedown")
+    }
+
+    @Suppress("UNUSED_PARAMETER")
     @Listener
     fun onDataRegistration(event: GameRegistryEvent.Register<DataRegistration<*, *>>) {
         DataRegistration.builder()
@@ -81,14 +89,18 @@ class Main {
         event.register(DataLieDown.key)
     }
 
-    @SuppressWarnings("unused")
     @Listener
-    fun preInit(event: GamePreInitializationEvent) {
-        Sponge.getServiceManager().provide(PacketGate::class.java).orElse(null)?.registerListener(
+    fun userJoin(event: ClientConnectionEvent.Join) {
+        logger.info("Registering user packet listener")
+
+        val packetGate = Sponge.getServiceManager().provide(PacketGate::class.java).get()
+        val connection = packetGate.connectionByPlayer(event.targetEntity).get()
+
+        packetGate.registerListener(
                 PlayerSpawnPacketListener(),
-                ListenerPriority.DEFAULT,
-                CPacketChatMessage::class.java,
-                SPacketChat::class.java
+                ListenerPriority.FIRST,
+                connection,
+                SPacketSpawnPlayer::class.java
         )
     }
 
@@ -101,23 +113,24 @@ class Main {
         if (humanToEntityId[human] != null) {
             logger.info("update lie down status of $id to $isLying")
 
-            if (isLying) {
-                (human.world as World).players.forEach {
+            humanToEntityId[human] = id
+            entityIdToState[id] = isLying
+            entityIdToHuman[id] = human
+
+            (human.world as World).players.forEach {
+                if (isLying) {
                     sendLieDownToPlayer(it, human)
-                }
-            } else {
-                (human.world as World).players.forEach {
+                } else {
                     sendWakeUpToPlayer(it, human)
                 }
             }
         } else {
             logger.info("set lie down status of $id to $isLying")
+
+            humanToEntityId[human] = id
+            entityIdToState[id] = isLying
+            entityIdToHuman[id] = human
         }
-
-        humanToEntityId[human] = id
-        entityIdToState[id] = isLying
-        entityIdToHuman[id] = human
-
     }
 
     fun handleUnset(human: Human) {
@@ -135,15 +148,12 @@ class Main {
         event.entities.forEach { human ->
             human as? Human ?: return@forEach
 
-            human[DataLieDown::class.java].orElse(null).fill(human).orElse(null)?.let {
+            human[DataLieDown::class.java].orElse(null)?.fill(human)?.orElse(null)?.let {
                 human.offer(it)
             } ?: let {
                 val container = DataLieDown(false, human)
                 human.offer(container)
             }
-
-            val result2 = human.offer(DataLieDown.key, true)
-            logger.info("offer data result2 ${result2.isSuccessful}, ${result2.type}, ${result2.rejectedData}")
         }
     }
 
