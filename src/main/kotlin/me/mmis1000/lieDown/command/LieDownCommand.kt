@@ -16,7 +16,10 @@ class LieDownCommand : CommandExecutor {
         val spec: CommandSpec = CommandSpec.builder()
                 .description(Text.of("Make human entity lie down"))
                 .arguments(
-                        GenericArguments.entity(Text.of("human"), EntityTypes.HUMAN),
+                        GenericArguments.firstParsing(
+                                HumanSelector(Text.of("human")),
+                                GenericArguments.entity(Text.of("human"), EntityTypes.HUMAN)
+                        ),
                         GenericArguments.optional(GenericArguments.bool(Text.of("is_lying_down")))
                 )
                 .permission("me.mmis1000.liedown")

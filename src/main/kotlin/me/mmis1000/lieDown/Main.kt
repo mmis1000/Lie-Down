@@ -115,15 +115,19 @@ class Main {
         if (humanToEntityId[human] != null) {
             logger.info("update lie down status of $id from ${entityIdToState[id]} to $isLying")
 
+            val oldState = entityIdToState[id]
+
             humanToEntityId[human] = id
             entityIdToState[id] = isLying
             entityIdToHuman[id] = human
 
-            (human.world as World).players.forEach {
-                if (isLying && entityIdToState[id] != true) {
-                    sendLieDownToPlayer(it, human)
-                } else if (!isLying && entityIdToState[id] == true) {
-                    sendWakeUpToPlayer(it, human)
+            if (oldState!= isLying) {
+                (human.world as World).players.forEach {
+                    if (isLying) {
+                        sendLieDownToPlayer(it, human)
+                    } else if (!isLying) {
+                        sendWakeUpToPlayer(it, human)
+                    }
                 }
             }
         } else {
