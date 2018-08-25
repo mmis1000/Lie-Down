@@ -9,6 +9,7 @@ import me.mmis1000.lieDown.network.Helper.Companion.sendLieDownToPlayer
 import me.mmis1000.lieDown.network.Helper.Companion.sendWakeUpToPlayer
 import me.mmis1000.lieDown.network.PlayerSpawnPacketListener
 import net.minecraft.entity.Entity
+import net.minecraft.network.play.server.SPacketEntityTeleport
 import net.minecraft.network.play.server.SPacketSpawnPlayer
 import org.slf4j.Logger
 import org.spongepowered.api.Sponge
@@ -20,7 +21,6 @@ import org.spongepowered.api.event.entity.DestructEntityEvent
 import org.spongepowered.api.event.entity.SpawnEntityEvent
 import org.spongepowered.api.event.game.GameRegistryEvent
 import org.spongepowered.api.event.game.state.GameConstructionEvent
-import org.spongepowered.api.event.game.state.GamePostInitializationEvent
 import org.spongepowered.api.event.game.state.GamePreInitializationEvent
 import org.spongepowered.api.event.network.ClientConnectionEvent
 import org.spongepowered.api.event.world.chunk.UnloadChunkEvent
@@ -29,6 +29,8 @@ import org.spongepowered.api.plugin.PluginContainer
 import org.spongepowered.api.world.World
 import java.util.concurrent.ConcurrentHashMap
 
+// make the human be above ground
+const val Y_OFFSET = 0.14
 
 @Plugin(
         id = "lie_down",
@@ -49,7 +51,6 @@ class Main {
     private val humanToEntityId = ConcurrentHashMap<Human, Int>()
     private val entityIdToHuman = ConcurrentHashMap<Int, Human>()
     private val entityIdToState = ConcurrentHashMap<Int, Boolean>()
-
 
     fun shouldLieDown(id: Int): Boolean {
         return entityIdToState[id] == true
@@ -100,7 +101,8 @@ class Main {
                 PlayerSpawnPacketListener(),
                 ListenerPriority.FIRST,
                 connection,
-                SPacketSpawnPlayer::class.java
+                SPacketSpawnPlayer::class.java,
+                SPacketEntityTeleport::class.java
         )
     }
 
@@ -111,16 +113,16 @@ class Main {
         val id = (human as Entity).entityId
 
         if (humanToEntityId[human] != null) {
-            logger.info("update lie down status of $id to $isLying")
+            logger.info("update lie down status of $id from ${entityIdToState[id]} to $isLying")
 
             humanToEntityId[human] = id
             entityIdToState[id] = isLying
             entityIdToHuman[id] = human
 
             (human.world as World).players.forEach {
-                if (isLying) {
+                if (isLying && entityIdToState[id] != true) {
                     sendLieDownToPlayer(it, human)
-                } else {
+                } else if (!isLying && entityIdToState[id] == true) {
                     sendWakeUpToPlayer(it, human)
                 }
             }

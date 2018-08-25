@@ -3,7 +3,7 @@ package me.mmis1000.lieDown.network
 import com.mojang.authlib.GameProfile
 import eu.crushedpixel.sponge.packetgate.api.registry.PacketConnection
 import eu.crushedpixel.sponge.packetgate.api.registry.PacketGate
-import me.mmis1000.lieDown.Main
+import me.mmis1000.lieDown.Y_OFFSET
 import net.minecraft.entity.Entity
 import net.minecraft.entity.player.EntityPlayer
 import net.minecraft.network.play.server.SPacketAnimation
@@ -14,7 +14,6 @@ import net.minecraft.world.World
 import org.spongepowered.api.Sponge
 import org.spongepowered.api.entity.living.Human
 import org.spongepowered.api.entity.living.player.Player
-import org.spongepowered.api.scheduler.Task
 
 class Helper {
     class HumanWrapper(human: Human) : EntityPlayer(human.world as World, GameProfile(null, "place_holder")) {
@@ -27,14 +26,25 @@ class Helper {
     }
 
     companion object {
+        private val Double.mc_l: Long
+            get() = (this * 32.0 * 128.0).toLong()
+
         fun sendLieDown(connection: PacketConnection, human: Human) {
             connection.sendPacket(SPacketUseBed(HumanWrapper(human), human.location.blockPosition.run { BlockPos(x, y, z) }))
-            connection.sendPacket(SPacketEntity.S15PacketEntityRelMove((human as Entity).entityId, 0, (-0.6 * 32.0 * 128.0).toLong(), 0, true))
+
+            val (x, y, z) = human.location.run { Triple(x, y, z) }
+
+            val (blockX, blockY, blockZ) = human.location.blockPosition.run { Triple(x, y, z) }
+
+            val (offsetX, offsetY, offsetZ) =
+                    Triple(x - blockX, y - blockY + Y_OFFSET, z - blockZ)
+
+            connection.sendPacket(SPacketEntity.S15PacketEntityRelMove((human as Entity).entityId, offsetX.mc_l, offsetY.mc_l, offsetZ.mc_l, false))
         }
 
         fun sendWakeUp(connection: PacketConnection, human: Human) {
             connection.sendPacket(SPacketAnimation(human as Entity, 2))
-            connection.sendPacket(SPacketEntity.S15PacketEntityRelMove((human as Entity).entityId, 0, (0.6 * 32.0 * 128.0).toLong(), 0, true))
+            connection.sendPacket(SPacketEntity.S15PacketEntityRelMove((human as Entity).entityId, 0, -(Y_OFFSET * 32.0 * 128.0).toLong(), 0, true))
         }
 
         fun sendLieDownToPlayer(player: Player, human: Human) {
